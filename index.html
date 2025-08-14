@@ -2,78 +2,66 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Word Definition App</title>
+<title>Auto-detect Dictionary</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-input, textarea { width: 100%; margin: 10px 0; padding: 8px; }
-#results { margin-top: 20px; }
-.word { font-weight: bold; }
-.definition { margin-bottom: 10px; }
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  input, button { font-size: 16px; margin: 5px 0; }
+  #definition { margin-top: 10px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
+<h2>Auto-detect Dictionary</h2>
 
-<h1>Word Definition App</h1>
-<textarea id="textInput" rows="5" placeholder="Paste your text here..."></textarea>
-<button onclick="defineWords()">Define Words</button>
+<input type="text" id="wordInput" placeholder="Enter word">
+<button onclick="getDefinition()">Get Definition</button>
 
-<div id="results"></div>
+<p id="definition"></p>
 
 <script>
-// Simple dictionaries for demonstration
-const dictionaries = {
-  turkish: {
-    "müstakil": "Kendi başına, bağımsız.",
-    "gitmek": "Bir yerden bir yere hareket etmek.",
-    "sevgi": "İnsanların birbirine karşı duyduğu sıcak, samimi duygu."
-  },
-  english: {
-    "independent": "Free from outside control; not depending on another's authority.",
-    "go": "Move from one place to another.",
-    "love": "A deep feeling of affection or attachment."
-  },
-  spanish: {
-    "independiente": "Libre de control externo; no depende de la autoridad de otro.",
-    "ir": "Moverse de un lugar a otro.",
-    "amor": "Un sentimiento profundo de afecto o apego."
-  }
-};
-
-// Function to detect language (checks which dictionary contains the word)
 function detectLanguage(word) {
-  word = word.toLowerCase();
-  for (let lang in dictionaries) {
-    if (dictionaries[lang][word]) return lang;
-  }
-  return null;
+    const c = word[0];
+    if (/[а-яёА-ЯЁ]/.test(c)) return 'ru';       // Cyrillic → Russian
+    if (/[ぁ-んァ-ン一-龯]/.test(c)) return 'ja'; // Japanese
+    if (/[a-zA-Z]/.test(c)) {
+        // Simple heuristic for Latin script languages
+        const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
+        const frenchChars = /[éèêëàâôùûîïç]/;
+        const spanishChars = /[áéíóúñü]/;
+        if (turkishChars.test(word)) return 'tr';
+        if (frenchChars.test(word)) return 'fr';
+        if (spanishChars.test(word)) return 'es';
+        return 'en'; // default Latin → English
+    }
+    return 'en'; // fallback
 }
 
-function defineWords() {
-  const input = document.getElementById("textInput").value;
-  const words = input.match(/\b\w+\b/g); // split into words
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "";
-
-  if (!words) {
-    resultsDiv.innerHTML = "No words found.";
-    return;
-  }
-
-  words.forEach(word => {
-    const lang = detectLanguage(word);
-    const definition = lang ? dictionaries[lang][word.toLowerCase()] : null;
-
-    const div = document.createElement("div");
-    div.className = "definition";
-    if (definition) {
-      div.innerHTML = `<span class="word">${word}</span>: ${definition}`;
-    } else {
-      div.innerHTML = `<span class="word">${word}</span>: <i>No definition found</i>`;
+async function getDefinition() {
+    const word = document.getElementById('wordInput').value.trim();
+    const definitionElem = document.getElementById('definition');
+    if (!word) {
+        definitionElem.textContent = 'Please enter a word.';
+        return;
     }
-    resultsDiv.appendChild(div);
-  });
+    
+    const lang = detectLanguage(word);
+    const apiUrl = `https://${lang}.wiktionary.org/w/api.php?action=query&titles=${word}&prop=extracts&format=json&origin=*`;
+    
+    try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        const pages = data.query.pages;
+        const page = Object.values(pages)[0];
+        if (page.extract) {
+            const cleanText = page.extract.replace(/<[^>]*>?/gm, '');
+            definitionElem.textContent = cleanText || 'Definition not found in detected language.';
+        } else {
+            definitionElem.textContent = 'Definition not found in detected language.';
+        }
+    } catch (error) {
+        definitionElem.textContent = 'Error fetching definition.';
+        console.error(error);
+    }
 }
 </script>
-
 </body>
 </html>
