@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Word Definition Finder</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 10px; max-width: 600px; margin: auto; }
+  textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+  button { padding: 10px 15px; margin-bottom: 15px; }
+  .result { margin-top: 15px; }
+  .word { font-weight: bold; color: #333; }
+  .definition { margin-left: 10px; color: #555; }
+</style>
+</head>
+<body>
+<h2>Instant Word Definition Tool</h2>
+<p>Paste text below. The tool will detect the language, find base forms, and fetch monolingual definitions.</p>
+<textarea id="inputText" placeholder="Paste your text here..."></textarea><br>
+<button onclick="processText()">Get Definitions</button>
+<div id="output" class="result"></div><script>
+async function fetchDefinition(word, lang) {
+    try {
+        const url = `https://${lang}.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(word)}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data[lang] && data[lang][0] && data[lang][0].definitions[0]) {
+            return data[lang][0].definitions[0].definition.replace(/<[^>]*>?/gm, '');
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+async function detectLanguage(text) {
+    const res = await fetch(`https://libretranslate.de/detect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q: text })
+    });
+    const detections = await res.json();
+    return detections[0]?.language || "en";
+}
+
+async function processText() {
+    const text = document.getElementById("inputText").value.trim();
+    if (!text) return;
+
+    const lang = await detectLanguage(text);
+    const words = [...new Set(text.split(/\s+/))];
+    const outputDiv = document.getElementById("output");
+    outputDiv.innerHTML = "Processing...";
+
+    let results = [];
+    for (const word of words) {
+        const def = await fetchDefinition(word, lang);
+        if (def) {
+            results.push(`<div><span class='word'>${word}</span>: <span class='definition'>${def}</span></div>`);
+        } else {
+            results.push(`<div><span class='word'>${word}</span>: <span class='definition'>(No definition found)</span></div>`);
+        }
+    }
+    outputDiv.innerHTML = results.join("");
+}
+</script></body>
+</html>
