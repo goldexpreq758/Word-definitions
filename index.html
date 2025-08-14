@@ -1,33 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Word Definitions App</title>
+<meta charset="UTF-8">
+<title>Word Definition App</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+input, textarea { width: 100%; margin: 10px 0; padding: 8px; }
+#results { margin-top: 20px; }
+.word { font-weight: bold; }
+.definition { margin-bottom: 10px; }
+</style>
 </head>
 <body>
-  <h1>Paste text below</h1>
-  <textarea id="input" rows="5" cols="40"></textarea><br>
-  <button onclick="processText()">Get Definitions</button>
-  <div id="output"></div>
 
-  <script>
-    async function processText() {
-      let text = document.getElementById('input').value;
-      let words = text.split(/\s+/);
-      let outputDiv = document.getElementById('output');
-      outputDiv.innerHTML = '';
+<h1>Word Definition App</h1>
+<textarea id="textInput" rows="5" placeholder="Paste your text here..."></textarea>
+<button onclick="defineWords()">Define Words</button>
 
-      for (let word of words) {
-        let response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-        if (response.ok) {
-          let data = await response.json();
-          let def = data[0]?.meanings[0]?.definitions[0]?.definition || "No definition found";
-          outputDiv.innerHTML += `<p><b>${word}</b>: ${def}</p>`;
-        } else {
-          outputDiv.innerHTML += `<p><b>${word}</b>: No definition found</p>`;
-        }
-      }
+<div id="results"></div>
+
+<script>
+// Simple dictionaries for demonstration
+const dictionaries = {
+  turkish: {
+    "müstakil": "Kendi başına, bağımsız.",
+    "gitmek": "Bir yerden bir yere hareket etmek.",
+    "sevgi": "İnsanların birbirine karşı duyduğu sıcak, samimi duygu."
+  },
+  english: {
+    "independent": "Free from outside control; not depending on another's authority.",
+    "go": "Move from one place to another.",
+    "love": "A deep feeling of affection or attachment."
+  },
+  spanish: {
+    "independiente": "Libre de control externo; no depende de la autoridad de otro.",
+    "ir": "Moverse de un lugar a otro.",
+    "amor": "Un sentimiento profundo de afecto o apego."
+  }
+};
+
+// Function to detect language (checks which dictionary contains the word)
+function detectLanguage(word) {
+  word = word.toLowerCase();
+  for (let lang in dictionaries) {
+    if (dictionaries[lang][word]) return lang;
+  }
+  return null;
+}
+
+function defineWords() {
+  const input = document.getElementById("textInput").value;
+  const words = input.match(/\b\w+\b/g); // split into words
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "";
+
+  if (!words) {
+    resultsDiv.innerHTML = "No words found.";
+    return;
+  }
+
+  words.forEach(word => {
+    const lang = detectLanguage(word);
+    const definition = lang ? dictionaries[lang][word.toLowerCase()] : null;
+
+    const div = document.createElement("div");
+    div.className = "definition";
+    if (definition) {
+      div.innerHTML = `<span class="word">${word}</span>: ${definition}`;
+    } else {
+      div.innerHTML = `<span class="word">${word}</span>: <i>No definition found</i>`;
     }
-  </script>
+    resultsDiv.appendChild(div);
+  });
+}
+</script>
+
 </body>
 </html>
