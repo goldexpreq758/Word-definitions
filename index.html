@@ -1,67 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Auto-detect Dictionary</title>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  input, button { font-size: 16px; margin: 5px 0; }
-  #definition { margin-top: 10px; white-space: pre-wrap; }
-</style>
+  <meta charset="UTF-8">
+  <title>Word Definition Finder</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { padding: 10px; width: 250px; margin-right: 10px; }
+    button { padding: 10px; }
+    .result { margin-top: 20px; }
+    .word { font-weight: bold; font-size: 1.2em; }
+    .definition { margin-left: 10px; }
+  </style>
 </head>
 <body>
-<h2>Auto-detect Dictionary</h2>
+  <h2>Word Definition Finder (via Wiktionary)</h2>
+  <input type="text" id="wordInput" placeholder="Type a word" />
+  <button onclick="getDefinition()">Search</button>
 
-<input type="text" id="wordInput" placeholder="Enter word">
-<button onclick="getDefinition()">Get Definition</button>
+  <div class="result" id="result"></div>
 
-<p id="definition"></p>
+  <script>
+    async function getDefinition() {
+      const word = document.getElementById('wordInput').value.trim();
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '';
 
-<script>
-function detectLanguage(word) {
-    const c = word[0];
-    if (/[а-яёА-ЯЁ]/.test(c)) return 'ru';       // Cyrillic → Russian
-    if (/[ぁ-んァ-ン一-龯]/.test(c)) return 'ja'; // Japanese
-    if (/[a-zA-Z]/.test(c)) {
-        // Simple heuristic for Latin script languages
-        const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
-        const frenchChars = /[éèêëàâôùûîïç]/;
-        const spanishChars = /[áéíóúñü]/;
-        if (turkishChars.test(word)) return 'tr';
-        if (frenchChars.test(word)) return 'fr';
-        if (spanishChars.test(word)) return 'es';
-        return 'en'; // default Latin → English
-    }
-    return 'en'; // fallback
-}
+      if (!word) return;
 
-async function getDefinition() {
-    const word = document.getElementById('wordInput').value.trim();
-    const definitionElem = document.getElementById('definition');
-    if (!word) {
-        definitionElem.textContent = 'Please enter a word.';
-        return;
-    }
-    
-    const lang = detectLanguage(word);
-    const apiUrl = `https://${lang}.wiktionary.org/w/api.php?action=query&titles=${word}&prop=extracts&format=json&origin=*`;
-    
-    try {
-        const response = await fetch(apiUrl);
+      // Auto detect language: first try Turkish, fallback to English
+      const url = `https://en.wiktionary.org/w/api.php?action=query&format=json&origin=*&prop=extracts&titles=${encodeURIComponent(word)}&explaintext=1`;
+
+      try {
+        const response = await fetch(url);
         const data = await response.json();
         const pages = data.query.pages;
         const page = Object.values(pages)[0];
-        if (page.extract) {
-            const cleanText = page.extract.replace(/<[^>]*>?/gm, '');
-            definitionElem.textContent = cleanText || 'Definition not found in detected language.';
-        } else {
-            definitionElem.textContent = 'Definition not found in detected language.';
+
+        if (!page.extract || page.extract.trim() === '') {
+          resultDiv.innerHTML = `<span class="word">${word}</span>: <span class="definition">Definition not found.</span>`;
+          return;
         }
-    } catch (error) {
-        definitionElem.textContent = 'Error fetching definition.';
-        console.error(error);
+
+        // Extract first few lines for simplicity
+        const lines = page.extract.split('\n').filter(l => l.trim() !== '');
+        const definitions = lines.slice(0, 5).map(l => `<li>${l}</li>`).join('');
+
+        resultDiv.innerHTML = `<span class="word">${word}</span> definition(s):<ul class="definition">${definitions}</ul>`;
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = `<span class="word">${word}</span>: <span class="definition">Error fetching definition.</span>`;
+      }
     }
-}
-</script>
+  </script>
 </body>
 </html>
